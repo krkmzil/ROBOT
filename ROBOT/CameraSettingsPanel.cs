@@ -19,6 +19,10 @@ namespace ROBOT
         private int _roiWidth = 320;
         private int _roiHeight = 240;
 
+        private bool _resumeOnShow = false;
+        private bool _pendingSliderRestore = false;
+        private int?[] _savedSliderValues = new int?[4];
+
         private readonly List<ObjectSample> _objectSamples = new();
         private readonly object _cropLock = new();
         private Bitmap? _latestRoiCrop;
@@ -66,27 +70,88 @@ namespace ROBOT
 
         private void buttonConnect_Click(object sender, EventArgs e)
         {
+            ConnectSelectedCamera(restoreSettings: false, silent: false);
+        }
+
+        // restoreSettings: sayfaya geri dönüşte otomatik yeniden bağlanırken, önceki slider
+        // değerlerini ve ROI konumunu korur (manuel "Bağlan"da her şey sıfırdan başlar).
+        private bool ConnectSelectedCamera(bool restoreSettings, bool silent)
+        {
             if (comboBoxCamera.SelectedItem == null)
             {
-                MessageBox.Show("Önce bir kamera seç.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                if (!silent)
+                    MessageBox.Show("Önce bir kamera seç.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
             }
 
             string cameraName = comboBoxCamera.SelectedItem.ToString()!;
-            bool ok = _camera.Connect(cameraName);
 
-            if (!ok)
+            if (!_camera.Connect(cameraName))
             {
-                MessageBox.Show("Kameraya bağlanamadı.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
+                if (!silent)
+                    MessageBox.Show("Kameraya bağlanamadı.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
             }
 
-            _roiInitialized = false;
+            if (!restoreSettings)
+                _roiInitialized = false;
+
             UpdateConnectionUi();
             SetupPropertySlider(trackBarBrightness, labelBrightnessValue, CameraProperty.Brightness);
             SetupPropertySlider(trackBarContrast, labelContrastValue, CameraProperty.Contrast);
             SetupPropertySlider(trackBarSharpness, labelSharpnessValue, CameraProperty.Sharpness);
             SetupPropertySlider(trackBarSaturation, labelSaturationValue, CameraProperty.Saturation);
+
+            if (restoreSettings)
+            {
+                RestoreSliderValues();
+                _pendingSliderRestore = true; // sürücü akış başlayınca değerleri sıfırlarsa ilk karede tekrar uygula
+            }
+
+            return true;
+        }
+
+        private void RestoreSliderValues()
+        {
+            RestoreSlider(trackBarBrightness, labelBrightnessValue, CameraProperty.Brightness, _savedSliderValues[0]);
+            RestoreSlider(trackBarContrast, labelContrastValue, CameraProperty.Contrast, _savedSliderValues[1]);
+            RestoreSlider(trackBarSharpness, labelSharpnessValue, CameraProperty.Sharpness, _savedSliderValues[2]);
+            RestoreSlider(trackBarSaturation, labelSaturationValue, CameraProperty.Saturation, _savedSliderValues[3]);
+        }
+
+        private void RestoreSlider(TrackBar trackBar, Label valueLabel, CameraProperty property, int? savedValue)
+        {
+            if (savedValue == null || !trackBar.Enabled) return;
+
+            trackBar.Value = Math.Clamp(savedValue.Value, trackBar.Minimum, trackBar.Maximum);
+            _camera.SetProperty(property, trackBar.Value);
+            valueLabel.Text = trackBar.Value.ToString();
+        }
+
+        // Shell sayfadan ayrılırken çağırır: bağlıysa slider değerlerini hatırlayıp kamerayı bırakır.
+        public void SuspendCamera()
+        {
+            _resumeOnShow = _camera.IsConnected;
+            if (!_resumeOnShow) return;
+
+            _savedSliderValues = new int?[]
+            {
+                trackBarBrightness.Enabled ? trackBarBrightness.Value : null,
+                trackBarContrast.Enabled ? trackBarContrast.Value : null,
+                trackBarSharpness.Enabled ? trackBarSharpness.Value : null,
+                trackBarSaturation.Enabled ? trackBarSaturation.Value : null
+            };
+
+            ReleaseCamera();
+        }
+
+        // Shell sayfaya geri dönüldüğünde çağırır: ayrılırken bağlıysa otomatik yeniden bağlanır.
+        public void ResumeCamera()
+        {
+            if (!_resumeOnShow) return;
+            _resumeOnShow = false;
+
+            ConnectSelectedCamera(restoreSettings: true, silent: true);
         }
 
         private void buttonSaveSettings_Click(object sender, EventArgs e)
@@ -214,6 +279,12 @@ namespace ROBOT
 
             _frameWidth = frame.Width;
             _frameHeight = frame.Height;
+
+            if (_pendingSliderRestore)
+            {
+                _pendingSliderRestore = false;
+                RestoreSliderValues();
+            }
 
             if (!_roiInitialized)
             {

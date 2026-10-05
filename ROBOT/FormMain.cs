@@ -32,10 +32,12 @@ namespace ROBOT
         {
             if (_activePanel == panel) return;
 
+            // Ayrılan sayfa kamerayı bırakır ama ayarlarını hatırlar; geri dönüldüğünde
+            // sayfa kendini otomatik olarak son kaldığı haliyle yeniden bağlar.
             if (_activePanel is CameraSettingsPanel leavingCameraSettings)
-                leavingCameraSettings.ReleaseCamera();
+                leavingCameraSettings.SuspendCamera();
             else if (_activePanel is ImageProcessingPanel leavingImageProcessing)
-                leavingImageProcessing.ReleaseCamera();
+                leavingImageProcessing.SuspendCamera();
 
             panelContent.SuspendLayout();
             panelContent.Controls.Clear();
@@ -48,6 +50,11 @@ namespace ROBOT
 
             navButton.BackColor = NavActiveColor;
             _activePanel = panel;
+
+            if (panel is CameraSettingsPanel enteringCameraSettings)
+                enteringCameraSettings.ResumeCamera();
+            else if (panel is ImageProcessingPanel enteringImageProcessing)
+                enteringImageProcessing.ResumeCamera();
         }
 
         private void FormMain_FormClosing(object? sender, FormClosingEventArgs e)

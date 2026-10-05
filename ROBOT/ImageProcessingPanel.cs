@@ -10,6 +10,8 @@ namespace ROBOT
         private readonly CameraService _camera = new();
         private readonly ObjectRecognitionService _recognitionService = new();
 
+        private bool _resumeOnShow = false;
+
         public string? ActiveProfileName { get; private set; }
         public CameraSettingsData? ActiveProfileData { get; private set; }
 
@@ -24,6 +26,22 @@ namespace ROBOT
         {
             ReleaseCamera();
             _recognitionService.Dispose();
+        }
+
+        // Shell sayfadan ayrılırken çağırır: seçili profil varsa kamerayı bırakır ama profili hatırlar.
+        public void SuspendCamera()
+        {
+            _resumeOnShow = ActiveProfileData?.CameraName != null;
+            ReleaseCamera();
+        }
+
+        // Shell sayfaya geri dönüldüğünde çağırır: aktif profili yeniden uygulayıp kamerayı açar.
+        public void ResumeCamera()
+        {
+            if (!_resumeOnShow) return;
+            _resumeOnShow = false;
+
+            ApplyActiveProfile();
         }
 
         // Kamera Ayarları sayfası aynı fiziksel kameraya ihtiyaç duyabilir; sayfalar
