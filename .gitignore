@@ -15,3 +15,6 @@ Thumbs.db
 .DS_Store
 
 # Runtime-generated data (kamera/profil/nesne verileri bin/ içine yazılır, zaten yukarıda hariç)
+
+# PlatformIO derleme ciktilari (firmware)
+.pio/
