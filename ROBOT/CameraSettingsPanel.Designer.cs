@@ -53,6 +53,11 @@ namespace ROBOT
             labelClassListCaption = new Label();
             listBoxClasses = new ListBox();
             buttonDeleteClass = new Button();
+            labelShapeCaption = new Label();
+            comboBoxShape = new ComboBox();
+            labelThumbCaption = new Label();
+            flowLayoutPanelSamples = new FlowLayoutPanel();
+            buttonOpenDataset = new Button();
             ((System.ComponentModel.ISupportInitialize)pictureBoxPreview).BeginInit();
             ((System.ComponentModel.ISupportInitialize)trackBarBrightness).BeginInit();
             ((System.ComponentModel.ISupportInitialize)trackBarContrast).BeginInit();
@@ -451,7 +456,7 @@ namespace ROBOT
             //
             labelClassNameCaption.AutoSize = true;
             labelClassNameCaption.ForeColor = Color.FromArgb(230, 232, 240);
-            labelClassNameCaption.Location = new Point(910, 145);
+            labelClassNameCaption.Location = new Point(910, 140);
             labelClassNameCaption.Name = "labelClassNameCaption";
             labelClassNameCaption.Size = new Size(72, 15);
             labelClassNameCaption.TabIndex = 32;
@@ -462,7 +467,7 @@ namespace ROBOT
             textBoxClassName.BackColor = Color.FromArgb(38, 42, 61);
             textBoxClassName.BorderStyle = BorderStyle.FixedSingle;
             textBoxClassName.ForeColor = Color.FromArgb(230, 232, 240);
-            textBoxClassName.Location = new Point(910, 163);
+            textBoxClassName.Location = new Point(910, 158);
             textBoxClassName.Name = "textBoxClassName";
             textBoxClassName.Size = new Size(230, 23);
             textBoxClassName.TabIndex = 33;
@@ -474,7 +479,7 @@ namespace ROBOT
             buttonAddSample.FlatStyle = FlatStyle.Flat;
             buttonAddSample.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             buttonAddSample.ForeColor = Color.White;
-            buttonAddSample.Location = new Point(910, 193);
+            buttonAddSample.Location = new Point(910, 240);
             buttonAddSample.Name = "buttonAddSample";
             buttonAddSample.Size = new Size(230, 28);
             buttonAddSample.TabIndex = 34;
@@ -487,7 +492,7 @@ namespace ROBOT
             //
             labelClassListCaption.AutoSize = true;
             labelClassListCaption.ForeColor = Color.FromArgb(174, 180, 199);
-            labelClassListCaption.Location = new Point(910, 232);
+            labelClassListCaption.Location = new Point(910, 280);
             labelClassListCaption.Name = "labelClassListCaption";
             labelClassListCaption.Size = new Size(122, 15);
             labelClassListCaption.TabIndex = 35;
@@ -499,9 +504,9 @@ namespace ROBOT
             listBoxClasses.BorderStyle = BorderStyle.FixedSingle;
             listBoxClasses.ForeColor = Color.FromArgb(230, 232, 240);
             listBoxClasses.ItemHeight = 15;
-            listBoxClasses.Location = new Point(910, 252);
+            listBoxClasses.Location = new Point(910, 298);
             listBoxClasses.Name = "listBoxClasses";
-            listBoxClasses.Size = new Size(230, 184);
+            listBoxClasses.Size = new Size(230, 90);
             listBoxClasses.TabIndex = 36;
             //
             // buttonDeleteClass
@@ -511,7 +516,7 @@ namespace ROBOT
             buttonDeleteClass.FlatStyle = FlatStyle.Flat;
             buttonDeleteClass.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             buttonDeleteClass.ForeColor = Color.White;
-            buttonDeleteClass.Location = new Point(910, 448);
+            buttonDeleteClass.Location = new Point(910, 394);
             buttonDeleteClass.Name = "buttonDeleteClass";
             buttonDeleteClass.Size = new Size(230, 28);
             buttonDeleteClass.TabIndex = 37;
@@ -519,6 +524,64 @@ namespace ROBOT
             buttonDeleteClass.UseVisualStyleBackColor = false;
             buttonDeleteClass.FlatAppearance.BorderSize = 0;
             buttonDeleteClass.Click += buttonDeleteClass_Click;
+            //
+            // labelShapeCaption
+            //
+            labelShapeCaption.AutoSize = true;
+            labelShapeCaption.ForeColor = Color.FromArgb(230, 232, 240);
+            labelShapeCaption.Location = new Point(910, 190);
+            labelShapeCaption.Name = "labelShapeCaption";
+            labelShapeCaption.Size = new Size(100, 15);
+            labelShapeCaption.TabIndex = 38;
+            labelShapeCaption.Text = "Çerçeve şekli:";
+            //
+            // comboBoxShape
+            //
+            comboBoxShape.BackColor = Color.FromArgb(38, 42, 61);
+            comboBoxShape.DropDownStyle = ComboBoxStyle.DropDownList;
+            comboBoxShape.FlatStyle = FlatStyle.Flat;
+            comboBoxShape.ForeColor = Color.FromArgb(230, 232, 240);
+            comboBoxShape.Items.AddRange(new object[] { "Otomatik (nesnenin şekline göre)", "Daire", "Dikdörtgen (nesnenin açısına göre)" });
+            comboBoxShape.Location = new Point(910, 208);
+            comboBoxShape.Name = "comboBoxShape";
+            comboBoxShape.Size = new Size(230, 23);
+            comboBoxShape.TabIndex = 39;
+            comboBoxShape.SelectedIndex = 0;
+            //
+            // labelThumbCaption
+            //
+            labelThumbCaption.ForeColor = Color.FromArgb(174, 180, 199);
+            labelThumbCaption.Location = new Point(910, 432);
+            labelThumbCaption.Name = "labelThumbCaption";
+            labelThumbCaption.Size = new Size(240, 18);
+            labelThumbCaption.TabIndex = 40;
+            labelThumbCaption.Text = "Eklenen örnekler (büyütmek için tıkla):";
+            //
+            // flowLayoutPanelSamples
+            //
+            flowLayoutPanelSamples.AutoScroll = true;
+            flowLayoutPanelSamples.BackColor = Color.FromArgb(32, 34, 50);
+            flowLayoutPanelSamples.BorderStyle = BorderStyle.FixedSingle;
+            flowLayoutPanelSamples.Location = new Point(910, 452);
+            flowLayoutPanelSamples.Name = "flowLayoutPanelSamples";
+            flowLayoutPanelSamples.Size = new Size(240, 246);
+            flowLayoutPanelSamples.TabIndex = 41;
+            //
+            // buttonOpenDataset
+            //
+            buttonOpenDataset.BackColor = Color.FromArgb(38, 198, 218);
+            buttonOpenDataset.Cursor = Cursors.Hand;
+            buttonOpenDataset.FlatStyle = FlatStyle.Flat;
+            buttonOpenDataset.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            buttonOpenDataset.ForeColor = Color.White;
+            buttonOpenDataset.Location = new Point(910, 708);
+            buttonOpenDataset.Name = "buttonOpenDataset";
+            buttonOpenDataset.Size = new Size(240, 28);
+            buttonOpenDataset.TabIndex = 42;
+            buttonOpenDataset.Text = "Veri Setini Aç (klasör)";
+            buttonOpenDataset.UseVisualStyleBackColor = false;
+            buttonOpenDataset.FlatAppearance.BorderSize = 0;
+            buttonOpenDataset.Click += buttonOpenDataset_Click;
             //
             // CameraSettingsPanel
             //
@@ -564,6 +627,11 @@ namespace ROBOT
             Controls.Add(labelClassListCaption);
             Controls.Add(listBoxClasses);
             Controls.Add(buttonDeleteClass);
+            Controls.Add(labelShapeCaption);
+            Controls.Add(comboBoxShape);
+            Controls.Add(labelThumbCaption);
+            Controls.Add(flowLayoutPanelSamples);
+            Controls.Add(buttonOpenDataset);
             Font = new Font("Segoe UI", 9F);
             Name = "CameraSettingsPanel";
             Load += CameraSettingsPanel_Load;
@@ -616,5 +684,10 @@ namespace ROBOT
         private Label labelClassListCaption;
         private ListBox listBoxClasses;
         private Button buttonDeleteClass;
+        private Label labelShapeCaption;
+        private ComboBox comboBoxShape;
+        private Label labelThumbCaption;
+        private FlowLayoutPanel flowLayoutPanelSamples;
+        private Button buttonOpenDataset;
     }
 }

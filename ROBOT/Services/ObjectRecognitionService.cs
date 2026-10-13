@@ -1,20 +1,36 @@
 using System.Runtime.InteropServices;
+using System.Text.Json.Serialization;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using OpenCvSharp;
 
 namespace ROBOT.Services
 {
+    // Görüntü İşleme'de nesnenin etrafına çizilecek çerçevenin şekli.
+    public enum ObjectShape
+    {
+        Auto,       // Nesnenin ne kadar yuvarlak olduğuna bakılarak otomatik seçilir
+        Circle,     // Daire
+        Rectangle   // Nesnenin açısına oturan (döndürülmüş) dikdörtgen
+    }
+
     public class ObjectSample
     {
         public string ClassName { get; set; } = "";
         public float[] Embedding { get; set; } = Array.Empty<float>();
+
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public ObjectShape Shape { get; set; } = ObjectShape.Auto;
+
+        // Veri setindeki örnek resminin, veri seti klasörüne göre yolu (ör. "Elma\20261007_153012_123.png").
+        public string? ImageFile { get; set; }
     }
 
     public class ClassificationResult
     {
         public string ClassName { get; set; } = "";
         public float Score { get; set; }
+        public ObjectShape Shape { get; set; } = ObjectShape.Auto;
     }
 
     // Kamerada gösterilen nesneleri "öğrenip" (birkaç örnek kaydederek) daha sonra
@@ -71,6 +87,9 @@ namespace ROBOT.Services
             using var gray = new Mat();
             Cv2.CvtColor(bgrFrame, gray, ColorConversionCodes.BGR2GRAY);
 
+            // Kamera gürültüsü eşiklemede nesne sınırını her karede oynattığı için önce hafifçe bulanıklaştırılır.
+            Cv2.GaussianBlur(gray, gray, new OpenCvSharp.Size(7, 7), 0);
+
             using var thresh = new Mat();
             Cv2.Threshold(gray, thresh, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
 
@@ -118,7 +137,7 @@ namespace ROBOT.Services
         // öğrettiği nesne örneklerini taşır, tanıma o profilin listesiyle sınırlı kalır.
         public ClassificationResult? Classify(float[] embedding, IReadOnlyList<ObjectSample> samples)
         {
-            string? bestClass = null;
+            ObjectSample? best = null;
             float bestScore = -1f;
 
             foreach (var sample in samples)
@@ -127,12 +146,12 @@ namespace ROBOT.Services
                 if (score > bestScore)
                 {
                     bestScore = score;
-                    bestClass = sample.ClassName;
+                    best = sample;
                 }
             }
 
-            if (bestClass == null || bestScore < RecognitionThreshold) return null;
-            return new ClassificationResult { ClassName = bestClass, Score = bestScore };
+            if (best == null || bestScore < RecognitionThreshold) return null;
+            return new ClassificationResult { ClassName = best.ClassName, Score = bestScore, Shape = best.Shape };
         }
 
         private static float[] ExtractChwTensor(Mat bgrMat)

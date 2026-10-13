@@ -1,9 +1,17 @@
+using ROBOT.Services;
+
 namespace ROBOT
 {
     public partial class FormMain : Form
     {
-        private readonly MotorControlPanel _motorPanel = new();
+        // Seri bağlantı tüm sayfalar arasında paylaşılır: bağlantıyı Motor Kontrol açar,
+        // diğer sayfalar (ör. konveyör) aynı bağlantı üzerinden komut gönderir.
+        private readonly SerialPortService _serial = new();
+        private readonly ExtraAxesService _axes;
+
+        private readonly MotorControlPanel _motorPanel;
         private readonly CameraSettingsPanel _cameraPanel = new();
+        private readonly ConveyorSettingsPanel _conveyorPanel;
         private readonly ImageProcessingPanel _imagePanel = new();
 
         private static readonly Color NavActiveColor = Color.FromArgb(91, 110, 245);
@@ -13,6 +21,10 @@ namespace ROBOT
 
         public FormMain()
         {
+            _axes = new ExtraAxesService(_serial);
+            _motorPanel = new MotorControlPanel(_serial, _axes);
+            _conveyorPanel = new ConveyorSettingsPanel(_axes);
+
             InitializeComponent();
             FormClosing += FormMain_FormClosing;
 
@@ -21,6 +33,7 @@ namespace ROBOT
 
         private void buttonNavMotor_Click(object sender, EventArgs e) => ShowPanel(_motorPanel, buttonNavMotor);
         private void buttonNavCamera_Click(object sender, EventArgs e) => ShowPanel(_cameraPanel, buttonNavCamera);
+        private void buttonNavConveyor_Click(object sender, EventArgs e) => ShowPanel(_conveyorPanel, buttonNavConveyor);
         private void buttonNavImage_Click(object sender, EventArgs e) => ShowPanel(_imagePanel, buttonNavImage);
 
         // Sayfalar arasında geçiş yaparken hiçbirini kapatmaz; motor bağlantısı gibi
@@ -45,7 +58,7 @@ namespace ROBOT
             panelContent.Controls.Add(panel);
             panelContent.ResumeLayout();
 
-            foreach (var btn in new[] { buttonNavMotor, buttonNavCamera, buttonNavImage })
+            foreach (var btn in new[] { buttonNavMotor, buttonNavCamera, buttonNavConveyor, buttonNavImage })
                 btn.BackColor = NavInactiveColor;
 
             navButton.BackColor = NavActiveColor;
@@ -59,6 +72,10 @@ namespace ROBOT
 
         private void FormMain_FormClosing(object? sender, FormClosingEventArgs e)
         {
+            ErrorLog.Write($"Ana pencere kapaniyor, neden: {e.CloseReason}");
+
+            // Konveyör önce durdurulmalı, çünkü bağlantı kapanınca kart hareketi sürdürürdü.
+            _conveyorPanel.Cleanup();
             _motorPanel.Cleanup();
             _cameraPanel.Cleanup();
             _imagePanel.Cleanup();

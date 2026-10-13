@@ -17,6 +17,7 @@ namespace ROBOT
         {
             panelSidebar = new Panel();
             buttonNavImage = new Button();
+            buttonNavConveyor = new Button();
             buttonNavCamera = new Button();
             buttonNavMotor = new Button();
             labelBrand = new Label();
@@ -28,6 +29,7 @@ namespace ROBOT
             //
             panelSidebar.BackColor = Color.FromArgb(20, 21, 32);
             panelSidebar.Controls.Add(buttonNavImage);
+            panelSidebar.Controls.Add(buttonNavConveyor);
             panelSidebar.Controls.Add(buttonNavCamera);
             panelSidebar.Controls.Add(buttonNavMotor);
             panelSidebar.Controls.Add(labelBrand);
@@ -82,16 +84,33 @@ namespace ROBOT
             buttonNavCamera.FlatAppearance.BorderSize = 0;
             buttonNavCamera.Click += buttonNavCamera_Click;
             //
+            // buttonNavConveyor
+            //
+            buttonNavConveyor.Cursor = Cursors.Hand;
+            buttonNavConveyor.FlatStyle = FlatStyle.Flat;
+            buttonNavConveyor.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            buttonNavConveyor.ForeColor = Color.White;
+            buttonNavConveyor.Location = new Point(15, 210);
+            buttonNavConveyor.Name = "buttonNavConveyor";
+            buttonNavConveyor.Size = new Size(190, 50);
+            buttonNavConveyor.TabIndex = 3;
+            buttonNavConveyor.Text = "Konveyör Ayarları";
+            buttonNavConveyor.TextAlign = ContentAlignment.MiddleLeft;
+            buttonNavConveyor.Padding = new Padding(15, 0, 0, 0);
+            buttonNavConveyor.UseVisualStyleBackColor = false;
+            buttonNavConveyor.FlatAppearance.BorderSize = 0;
+            buttonNavConveyor.Click += buttonNavConveyor_Click;
+            //
             // buttonNavImage
             //
             buttonNavImage.Cursor = Cursors.Hand;
             buttonNavImage.FlatStyle = FlatStyle.Flat;
             buttonNavImage.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             buttonNavImage.ForeColor = Color.White;
-            buttonNavImage.Location = new Point(15, 210);
+            buttonNavImage.Location = new Point(15, 270);
             buttonNavImage.Name = "buttonNavImage";
             buttonNavImage.Size = new Size(190, 50);
-            buttonNavImage.TabIndex = 3;
+            buttonNavImage.TabIndex = 4;
             buttonNavImage.Text = "Görüntü İşleme";
             buttonNavImage.TextAlign = ContentAlignment.MiddleLeft;
             buttonNavImage.Padding = new Padding(15, 0, 0, 0);
@@ -129,6 +148,7 @@ namespace ROBOT
         private Label labelBrand;
         private Button buttonNavMotor;
         private Button buttonNavCamera;
+        private Button buttonNavConveyor;
         private Button buttonNavImage;
         private Panel panelContent;
     }

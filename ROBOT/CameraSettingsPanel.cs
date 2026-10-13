@@ -24,6 +24,15 @@ namespace ROBOT
         private int?[] _savedSliderValues = new int?[4];
 
         private readonly List<ObjectSample> _objectSamples = new();
+        // Henüz kaydedilmemiş örneklerin resimleri (küçük resim galerisi için); ObjectSample'a ait.
+        private readonly Dictionary<ObjectSample, Bitmap> _sampleImages = new();
+        private readonly DatasetService _datasetService = new();
+        // Arka plan thread'i örnek listesini doğrudan okumasın diye anlık kopya kullanılır.
+        private ObjectSample[] _samplesSnapshot = Array.Empty<ObjectSample>();
+        private volatile List<Detection> _detections = new();
+        private readonly DetectionTracker _tracker = new();
+        private int _detectionBusy;
+        private readonly ToolTip _toolTip = new();
         private readonly object _cropLock = new();
         private Bitmap? _latestRoiCrop;
 
@@ -50,6 +59,8 @@ namespace ROBOT
                 _latestRoiCrop = null;
             }
 
+            ClearSamples();
+            _toolTip.Dispose();
             _recognitionService.Dispose();
         }
 
@@ -166,6 +177,10 @@ namespace ROBOT
             if (inputForm.ShowDialog(FindForm()) != DialogResult.OK) return;
 
             string profileName = inputForm.EnteredName;
+            ErrorLog.Write($"Profil kaydediliyor: '{profileName}' ({_objectSamples.Count} nesne örneği)");
+
+            // Örnek resimleri "Örnek Ekle"de veri setine zaten yazıldı; burada sadece profile bağlanır.
+            int savedImageCount = _objectSamples.Count(s => s.ImageFile != null);
 
             var data = new CameraSettingsData
             {
@@ -182,11 +197,16 @@ namespace ROBOT
             };
 
             _settingsService.SaveProfile(profileName, data);
-            MessageBox.Show($"'{profileName}' profili kaydedildi.", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ErrorLog.Write($"Profil dosyaya yazıldı: '{profileName}'");
+
+            string message = savedImageCount > 0
+                ? $"'{profileName}' profili kaydedildi. Bu profilin {savedImageCount} örnek resmi veri setinde."
+                : $"'{profileName}' profili kaydedildi.";
+            MessageBox.Show(message, "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             // Bu profil kaydedildi; bir sonraki profili öğretmeye temiz bir listeyle başla.
-            _objectSamples.Clear();
-            RefreshClassList();
+            ClearSamples();
+            ErrorLog.Write("Kaydetme işlemi tamamlandı");
         }
 
         private void buttonDisconnect_Click(object sender, EventArgs e)
@@ -200,6 +220,8 @@ namespace ROBOT
         public void ReleaseCamera()
         {
             _camera.Disconnect();
+            _tracker.Reset();
+            _detections = new List<Detection>();
             pictureBoxPreview.Image?.Dispose();
             pictureBoxPreview.Image = null;
             UpdateConnectionUi();
@@ -304,15 +326,55 @@ namespace ROBOT
             }
             catch { }
 
+            StartDetectionIfIdle();
+
             using (var g = Graphics.FromImage(frame))
             using (var pen = new Pen(Color.FromArgb(0, 229, 255), 2))
             {
                 g.DrawRectangle(pen, _roiX, _roiY, _roiWidth, _roiHeight);
+
+                // ROI içindeki nesnelerin yeşil çerçevesi (şekil: listeden seçilen; tanınanlarda ad da yazar).
+                DetectionOverlay.Draw(g, _detections, _roiX, _roiY);
             }
 
             var oldImage = pictureBoxPreview.Image;
             pictureBoxPreview.Image = frame;
             oldImage?.Dispose();
+        }
+
+        // Nesne bulma/tanıma ağır olduğu için arka planda çalışır; her karede değil, bir önceki
+        // bitince yenisi başlar. Çizim her karede en son bulunan sonucu kullanır.
+        private void StartDetectionIfIdle()
+        {
+            if (Interlocked.CompareExchange(ref _detectionBusy, 1, 0) != 0) return;
+
+            var crop = CloneLatestCrop();
+            if (crop == null)
+            {
+                Interlocked.Exchange(ref _detectionBusy, 0);
+                return;
+            }
+
+            var samples = _samplesSnapshot;
+            ObjectShape selectedShape = SelectedShape();
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    var raw = DetectionOverlay.Detect(_recognitionService, crop, samples, selectedShape, includeUnmatched: true);
+                    _detections = _tracker.Update(raw);
+                }
+                catch
+                {
+                    _detections = new List<Detection>();
+                }
+                finally
+                {
+                    crop.Dispose();
+                    Interlocked.Exchange(ref _detectionBusy, 0);
+                }
+            });
         }
 
         private void buttonRoiUp_Click(object sender, EventArgs e) => NudgeRoi(0, -RoiNudgeStep);
@@ -400,9 +462,44 @@ namespace ROBOT
                 return;
             }
 
-            _objectSamples.Add(new ObjectSample { ClassName = className, Embedding = embedding });
+            var sample = new ObjectSample
+            {
+                ClassName = className,
+                Embedding = embedding,
+                Shape = SelectedShape()
+            };
+
+            var image = BitmapConverter.ToBitmap(blobMat);
+            _objectSamples.Add(sample);
+            _sampleImages[sample] = image;
+
+            // Resim veri setinde hemen nesne adının klasörüne yazılır (profil kaydından bağımsız).
+            try
+            {
+                sample.ImageFile = _datasetService.SaveSample(className, image);
+                labelThumbCaption.Text = $"'{className}' klasöründe {_datasetService.CountImages(className)} resim var.";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Örnek resmi veri setine kaydedilemedi: {ex.Message}", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+
             RefreshClassList();
         }
+
+        private ObjectShape SelectedShape() => comboBoxShape.SelectedIndex switch
+        {
+            1 => ObjectShape.Circle,
+            2 => ObjectShape.Rectangle,
+            _ => ObjectShape.Auto
+        };
+
+        private static string ShapeText(ObjectShape shape) => shape switch
+        {
+            ObjectShape.Circle => "Daire",
+            ObjectShape.Rectangle => "Dikdörtgen",
+            _ => "Otomatik"
+        };
 
         private void buttonDeleteClass_Click(object sender, EventArgs e)
         {
@@ -415,15 +512,134 @@ namespace ROBOT
             string entry = listBoxClasses.SelectedItem.ToString()!;
             string className = entry[..entry.LastIndexOf('(')].Trim();
 
-            _objectSamples.RemoveAll(s => s.ClassName == className);
+            foreach (var sample in _objectSamples.Where(s => s.ClassName == className).ToList())
+                RemoveSampleCore(sample);
+
+            RefreshClassList();
+        }
+
+        private void RemoveSampleCore(ObjectSample sample)
+        {
+            // Resim silinmeden önce küçük resim kutuları ondan ayrılmalı; yoksa kutu silinmiş resme
+            // dokunur ve GDI+ "Parameter is not valid" hatası verir.
+            ClearGalleryControls();
+
+            _objectSamples.Remove(sample);
+            if (_sampleImages.Remove(sample, out var image))
+                image.Dispose();
+
+            // Kullanıcı bu örneği sildiyse veri setindeki resmi de silinir.
+            if (sample.ImageFile != null)
+            {
+                try { _datasetService.DeleteSample(sample.ImageFile); }
+                catch { }
+            }
+        }
+
+        private void ClearSamples()
+        {
+            // Önce küçük resim kutuları resimlerden ayrılır, sonra resimler silinir (sıra önemli).
+            ClearGalleryControls();
+
+            foreach (var image in _sampleImages.Values)
+                image.Dispose();
+
+            _sampleImages.Clear();
+            _objectSamples.Clear();
             RefreshClassList();
         }
 
         private void RefreshClassList()
         {
+            _samplesSnapshot = _objectSamples.ToArray();
+
             listBoxClasses.Items.Clear();
             foreach (var group in _objectSamples.GroupBy(s => s.ClassName).OrderBy(g => g.Key))
                 listBoxClasses.Items.Add($"{group.Key} ({group.Count()} örnek)");
+
+            RefreshSampleGallery();
+        }
+
+        // Küçük resim kutularını kaldırır. Resimlerin sahibi _sampleImages'tır, burada dispose edilmez;
+        // kutudan önce ayrılır ki kutu silinirken resme dokunmasın.
+        private void ClearGalleryControls()
+        {
+            flowLayoutPanelSamples.SuspendLayout();
+
+            foreach (var control in flowLayoutPanelSamples.Controls.Cast<Control>().ToList())
+            {
+                if (control is PictureBox thumb)
+                    thumb.Image = null;
+
+                flowLayoutPanelSamples.Controls.Remove(control);
+                control.Dispose();
+            }
+
+            flowLayoutPanelSamples.ResumeLayout();
+        }
+
+        // Eklenen her örnek için küçük bir resim gösterir; tıklayınca büyük görüntülenir.
+        private void RefreshSampleGallery()
+        {
+            ClearGalleryControls();
+
+            flowLayoutPanelSamples.SuspendLayout();
+
+            foreach (var sample in _objectSamples)
+            {
+                if (!_sampleImages.TryGetValue(sample, out var image)) continue;
+
+                var thumb = new PictureBox
+                {
+                    Size = new System.Drawing.Size(72, 72),
+                    Margin = new Padding(3),
+                    SizeMode = PictureBoxSizeMode.Zoom,
+                    BorderStyle = BorderStyle.FixedSingle,
+                    BackColor = Color.FromArgb(18, 19, 28),
+                    Cursor = Cursors.Hand,
+                    Image = image,
+                    Tag = sample
+                };
+
+                _toolTip.SetToolTip(thumb, $"{sample.ClassName} ({ShapeText(sample.Shape)}) - büyütmek için tıkla");
+                thumb.Click += SampleThumb_Click;
+                flowLayoutPanelSamples.Controls.Add(thumb);
+            }
+
+            flowLayoutPanelSamples.ResumeLayout();
+        }
+
+        private void SampleThumb_Click(object? sender, EventArgs e)
+        {
+            if (sender is not PictureBox thumb || thumb.Tag is not ObjectSample sample) return;
+            if (!_sampleImages.TryGetValue(sample, out var image)) return;
+
+            string details = $"Çerçeve: {ShapeText(sample.Shape)}   •   {image.Width}x{image.Height} piksel";
+
+            bool deleteRequested;
+            using (var preview = new FormSamplePreview(image, sample.ClassName, details))
+            {
+                preview.ShowDialog(FindForm());
+                deleteRequested = preview.DeleteRequested;
+            }
+
+            if (deleteRequested)
+            {
+                RemoveSampleCore(sample);
+                RefreshClassList();
+            }
+        }
+
+        private void buttonOpenDataset_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                _datasetService.OpenRootInExplorer();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Veri seti klasörü açılamadı: {ex.Message}", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void UpdateLatestCrop(Bitmap crop)

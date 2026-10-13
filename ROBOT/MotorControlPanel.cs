@@ -5,7 +5,9 @@ namespace ROBOT
 {
     public partial class MotorControlPanel : UserControl
     {
-        private readonly SerialPortService _serial = new();
+        // Seri bağlantı ve B/A servisi tüm sayfalarla paylaşılır (konveyör sayfası da aynısını kullanır).
+        private readonly SerialPortService _serial;
+        private readonly ExtraAxesService _axes;
         private readonly System.Windows.Forms.Timer _bootTimer = new() { Interval = 2500 };
         private bool _boardReady = false;
         private double _jogStep = 1.0;
@@ -17,11 +19,15 @@ namespace ROBOT
             @"X:(-?\d+\.?\d*)\s+Y:(-?\d+\.?\d*)\s+Z:(-?\d+\.?\d*)",
             RegexOptions.Compiled);
 
-        public MotorControlPanel()
+        public MotorControlPanel(SerialPortService serial, ExtraAxesService axes)
         {
+            _serial = serial;
+            _axes = axes;
+
             InitializeComponent();
             _serial.LineReceived += Serial_LineReceived;
             _serial.LineSent += Serial_LineSent;
+            _axes.BPositionChanged += UpdateBDro;
 
             buttonStep01.Tag = 0.1;
             buttonStep1.Tag = 1.0;
@@ -33,6 +39,8 @@ namespace ROBOT
             buttonJogYMinus.Tag = ("Y", -1);
             buttonJogZPlus.Tag = ("Z", 1);
             buttonJogZMinus.Tag = ("Z", -1);
+            buttonJogBPlus.Tag = ("B", 1);
+            buttonJogBMinus.Tag = ("B", -1);
 
             textBoxCustomStep.TextChanged += (_, __) => UpdateStepCenterDisplay();
 
@@ -43,7 +51,21 @@ namespace ROBOT
                 _bootTimer.Stop();
                 _boardReady = true;
                 AppendLog("Kart hazır, komut gönderilebilir.");
+
+                _axes.Initialize();
+                _axes.BoardReady = true;
             };
+        }
+
+        private void UpdateBDro()
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(UpdateBDro));
+                return;
+            }
+
+            labelDroBValue.Text = _axes.BPosition.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         private void MotorControlPanel_Load(object sender, EventArgs e)
@@ -55,6 +77,7 @@ namespace ROBOT
         public void Cleanup()
         {
             _bootTimer.Stop();
+            _axes.BoardReady = false;
             _serial.Disconnect();
         }
 
@@ -121,16 +144,24 @@ namespace ROBOT
         {
             _bootTimer.Stop();
             _boardReady = false;
+            _axes.BoardReady = false;
+
+            // Bağlantı kesilince kart hareketi sürdürürdü; bant dönüyorsa önce durdur.
+            if (_axes.IsARunning)
+                _axes.StopA();
+
             _serial.Disconnect();
             UpdateConnectionUi();
             labelAlarm.Text = "";
             ResetDro();
+            _axes.ResetB();
             AppendLog("Bağlantı kesildi.");
         }
 
         private void buttonZeroX_Click(object sender, EventArgs e) => ZeroAxis("X");
         private void buttonZeroY_Click(object sender, EventArgs e) => ZeroAxis("Y");
         private void buttonZeroZ_Click(object sender, EventArgs e) => ZeroAxis("Z");
+        private void buttonZeroB_Click(object sender, EventArgs e) => _axes.ZeroB();
 
         private void ZeroAxis(string axis)
         {
@@ -145,6 +176,7 @@ namespace ROBOT
             labelDroXValue.Text = "0.000";
             labelDroYValue.Text = "0.000";
             labelDroZValue.Text = "0.000";
+            labelDroBValue.Text = "0.000";
         }
 
         private void buttonStep_Click(object sender, EventArgs e)
@@ -193,6 +225,13 @@ namespace ROBOT
             }
 
             double distance = step * sign;
+
+            if (axis == "B")
+            {
+                _axes.MoveB(distance);
+                return;
+            }
+
             int feed = axis == "Z" ? 500 : 1500;
             string distanceStr = distance.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 
@@ -200,6 +239,13 @@ namespace ROBOT
             _serial.SendLine($"G1 {axis}{distanceStr} F{feed}");
             _serial.SendLine("G90");
             _serial.SendLine("M114");
+        }
+
+        private void buttonBFullTurn_Click(object sender, EventArgs e)
+        {
+            if (!CheckReady()) return;
+
+            _axes.MoveB(360);
         }
 
         private static string FormatStep(double step) =>
@@ -221,8 +267,18 @@ namespace ROBOT
         {
             if (!CheckReady()) return;
 
-            _serial.SendLine("G28"); // Marlin: tüm eksenleri home'la
+            // Home sırası: Z, X, Y (Marlin'in kendi sırası X, Y, Z'dir), sonra B, sonra konveyör.
+            // Her G28 bitince "ok" döndüğü için sıra garantidir.
+            _serial.SendLine("G28 Z");
+            _serial.SendLine("G28 X");
+            _serial.SendLine("G28 Y");
             _serial.SendLine("M114");
+
+            // B ve konveyörün uç anahtarı yok: B sıfır konumuna döner, konveyör durdurulur.
+            if (Math.Abs(_axes.BPosition) > 0.001)
+                _axes.MoveB(-_axes.BPosition);
+
+            _axes.StopA();
         }
 
         private void buttonSendBatch_Click(object sender, EventArgs e)

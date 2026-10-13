@@ -65,6 +65,12 @@ namespace ROBOT
             textBoxBatch = new TextBox();
             buttonSendBatch = new Button();
             textBoxLog = new TextBox();
+            labelDroBCaption = new Label();
+            labelDroBValue = new Label();
+            buttonZeroB = new Button();
+            buttonJogBMinus = new Button();
+            buttonJogBPlus = new Button();
+            buttonBFullTurn = new Button();
             SuspendLayout();
             //
             // labelPort
@@ -558,7 +564,7 @@ namespace ROBOT
             //
             labelCustomStep.AutoSize = true;
             labelCustomStep.ForeColor = Color.FromArgb(174, 180, 199);
-            labelCustomStep.Location = new Point(790, 700);
+            labelCustomStep.Location = new Point(790, 742);
             labelCustomStep.Name = "labelCustomStep";
             labelCustomStep.Size = new Size(130, 15);
             labelCustomStep.TabIndex = 36;
@@ -570,18 +576,106 @@ namespace ROBOT
             textBoxCustomStep.BorderStyle = BorderStyle.FixedSingle;
             textBoxCustomStep.Font = new Font("Consolas", 11F, FontStyle.Bold);
             textBoxCustomStep.ForeColor = Color.FromArgb(0, 229, 255);
-            textBoxCustomStep.Location = new Point(790, 718);
+            textBoxCustomStep.Location = new Point(790, 760);
             textBoxCustomStep.Name = "textBoxCustomStep";
             textBoxCustomStep.Size = new Size(190, 27);
             textBoxCustomStep.TabIndex = 37;
             textBoxCustomStep.TextAlign = HorizontalAlignment.Center;
+            //
+            // labelDroBCaption
+            //
+            labelDroBCaption.Font = new Font("Segoe UI", 14F, FontStyle.Bold);
+            labelDroBCaption.ForeColor = Color.FromArgb(230, 232, 240);
+            labelDroBCaption.Location = new Point(1000, 55);
+            labelDroBCaption.Name = "labelDroBCaption";
+            labelDroBCaption.Size = new Size(24, 30);
+            labelDroBCaption.TabIndex = 38;
+            labelDroBCaption.Text = "B";
+            labelDroBCaption.TextAlign = ContentAlignment.MiddleCenter;
+            //
+            // labelDroBValue
+            //
+            labelDroBValue.BackColor = Color.FromArgb(18, 19, 28);
+            labelDroBValue.BorderStyle = BorderStyle.FixedSingle;
+            labelDroBValue.Font = new Font("Consolas", 16F, FontStyle.Bold);
+            labelDroBValue.ForeColor = Color.FromArgb(0, 229, 255);
+            labelDroBValue.Location = new Point(1000, 88);
+            labelDroBValue.Name = "labelDroBValue";
+            labelDroBValue.Size = new Size(160, 40);
+            labelDroBValue.TabIndex = 39;
+            labelDroBValue.Text = "0.000";
+            labelDroBValue.TextAlign = ContentAlignment.MiddleRight;
+            //
+            // buttonZeroB
+            //
+            buttonZeroB.BackColor = Color.FromArgb(91, 110, 245);
+            buttonZeroB.Cursor = Cursors.Hand;
+            buttonZeroB.FlatStyle = FlatStyle.Flat;
+            buttonZeroB.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
+            buttonZeroB.ForeColor = Color.White;
+            buttonZeroB.Location = new Point(1000, 130);
+            buttonZeroB.Name = "buttonZeroB";
+            buttonZeroB.Size = new Size(160, 28);
+            buttonZeroB.TabIndex = 40;
+            buttonZeroB.Text = "Zero B";
+            buttonZeroB.UseVisualStyleBackColor = false;
+            buttonZeroB.FlatAppearance.BorderSize = 0;
+            buttonZeroB.Click += buttonZeroB_Click;
+            //
+            // buttonJogBPlus
+            //
+            buttonJogBPlus.BackColor = Color.FromArgb(255, 167, 38);
+            buttonJogBPlus.Cursor = Cursors.Hand;
+            buttonJogBPlus.FlatStyle = FlatStyle.Flat;
+            buttonJogBPlus.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+            buttonJogBPlus.ForeColor = Color.White;
+            buttonJogBPlus.Location = new Point(790, 694);
+            buttonJogBPlus.Name = "buttonJogBPlus";
+            buttonJogBPlus.Size = new Size(96, 38);
+            buttonJogBPlus.TabIndex = 41;
+            buttonJogBPlus.Text = "B+";
+            buttonJogBPlus.UseVisualStyleBackColor = false;
+            buttonJogBPlus.FlatAppearance.BorderSize = 0;
+            buttonJogBPlus.Click += buttonJog_Click;
+            //
+            // buttonJogBMinus
+            //
+            buttonJogBMinus.BackColor = Color.FromArgb(255, 167, 38);
+            buttonJogBMinus.Cursor = Cursors.Hand;
+            buttonJogBMinus.FlatStyle = FlatStyle.Flat;
+            buttonJogBMinus.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+            buttonJogBMinus.ForeColor = Color.White;
+            buttonJogBMinus.Location = new Point(892, 694);
+            buttonJogBMinus.Name = "buttonJogBMinus";
+            buttonJogBMinus.Size = new Size(96, 38);
+            buttonJogBMinus.TabIndex = 42;
+            buttonJogBMinus.Text = "B-";
+            buttonJogBMinus.UseVisualStyleBackColor = false;
+            buttonJogBMinus.FlatAppearance.BorderSize = 0;
+            buttonJogBMinus.Click += buttonJog_Click;
+            //
+            // buttonBFullTurn
+            //
+            buttonBFullTurn.BackColor = Color.FromArgb(91, 110, 245);
+            buttonBFullTurn.Cursor = Cursors.Hand;
+            buttonBFullTurn.FlatStyle = FlatStyle.Flat;
+            buttonBFullTurn.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            buttonBFullTurn.ForeColor = Color.White;
+            buttonBFullTurn.Location = new Point(996, 694);
+            buttonBFullTurn.Name = "buttonBFullTurn";
+            buttonBFullTurn.Size = new Size(70, 38);
+            buttonBFullTurn.TabIndex = 43;
+            buttonBFullTurn.Text = "1 tur";
+            buttonBFullTurn.UseVisualStyleBackColor = false;
+            buttonBFullTurn.FlatAppearance.BorderSize = 0;
+            buttonBFullTurn.Click += buttonBFullTurn_Click;
             //
             // MotorControlPanel
             //
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.FromArgb(27, 29, 42);
-            Size = new Size(1010, 760);
+            Size = new Size(1180, 800);
             Controls.Add(labelPort);
             Controls.Add(comboBoxPort);
             Controls.Add(buttonConnect);
@@ -619,6 +713,12 @@ namespace ROBOT
             Controls.Add(textBoxBatch);
             Controls.Add(buttonSendBatch);
             Controls.Add(textBoxLog);
+            Controls.Add(labelDroBCaption);
+            Controls.Add(labelDroBValue);
+            Controls.Add(buttonZeroB);
+            Controls.Add(buttonJogBPlus);
+            Controls.Add(buttonJogBMinus);
+            Controls.Add(buttonBFullTurn);
             Font = new Font("Segoe UI", 9F);
             Name = "MotorControlPanel";
             Load += MotorControlPanel_Load;
@@ -665,5 +765,11 @@ namespace ROBOT
         private TextBox textBoxBatch;
         private Button buttonSendBatch;
         private TextBox textBoxLog;
+        private Label labelDroBCaption;
+        private Label labelDroBValue;
+        private Button buttonZeroB;
+        private Button buttonJogBMinus;
+        private Button buttonJogBPlus;
+        private Button buttonBFullTurn;
     }
 }

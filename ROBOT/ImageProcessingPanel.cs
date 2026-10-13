@@ -1,4 +1,4 @@
-using OpenCvSharp;
+﻿using OpenCvSharp;
 using OpenCvSharp.Extensions;
 using ROBOT.Services;
 
@@ -9,6 +9,7 @@ namespace ROBOT
         private readonly CameraSettingsService _settingsService = new();
         private readonly CameraService _camera = new();
         private readonly ObjectRecognitionService _recognitionService = new();
+        private readonly DetectionTracker _tracker = new();
 
         private bool _resumeOnShow = false;
 
@@ -49,6 +50,7 @@ namespace ROBOT
         public void ReleaseCamera()
         {
             _camera.Disconnect();
+            _tracker.Reset();
             pictureBoxPreview.Image?.Dispose();
             pictureBoxPreview.Image = null;
         }
@@ -80,6 +82,7 @@ namespace ROBOT
         private void ApplyActiveProfile()
         {
             _camera.Disconnect();
+            _tracker.Reset();
             pictureBoxPreview.Image?.Dispose();
             pictureBoxPreview.Image = null;
 
@@ -136,66 +139,18 @@ namespace ROBOT
             return toShow;
         }
 
-        // Perimeter²'ye oranla alan: mükemmel daire için 1.0, kare için ~0.785,
-        // uzun/oval şekiller için çok daha düşük. Bu eşiğin üstü "yuvarlak" sayılır.
-        private const double CircularityThreshold = 0.8;
-
         private Bitmap AnnotateWithRecognition(Bitmap crop, List<ObjectSample> samples)
         {
             try
             {
-                using var mat = BitmapConverter.ToMat(crop);
-                var contours = _recognitionService.DetectBlobs(mat);
+                // Sadece bu profilde öğretilmiş nesneler çizilir; çerçeve şekli öğretilirken seçilen şekildir.
+                var raw = DetectionOverlay.Detect(_recognitionService, crop, samples, forcedShape: null, includeUnmatched: false);
+
+                // Kare kare titremeyi önlemek için nesneler takip edilip konum/boyut/yüzde yumuşatılır.
+                var smoothed = _tracker.Update(raw);
 
                 using var g = Graphics.FromImage(crop);
-                using var font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-                var color = Color.FromArgb(76, 175, 80);
-                using var pen = new Pen(color, 2);
-
-                foreach (var contour in contours)
-                {
-                    using var blobMat = new Mat(mat, Cv2.BoundingRect(contour));
-                    var embedding = _recognitionService.ComputeEmbedding(blobMat);
-                    var match = embedding != null ? _recognitionService.Classify(embedding, samples) : null;
-
-                    if (match == null) continue; // Öğretilenle eşleşmeyen nesneler için hiçbir şey çizilmez.
-
-                    string label = $"{match.ClassName} %{match.Score * 100:0}";
-
-                    // Ham kontur, eşikleme gürültüsünden dolayı küçük pürüzler/çentikler içerebilir;
-                    // bu da daire/dikdörtgen kararının kareden kareye titremesine yol açar. Dışbükey
-                    // gövdeyi (convex hull) kullanmak kenarları düzleştirip kararı stabilize eder.
-                    var hull = Cv2.ConvexHull(contour);
-                    double area = Cv2.ContourArea(hull);
-                    double perimeter = Cv2.ArcLength(hull, true);
-                    double circularity = perimeter > 0 ? (4 * Math.PI * area) / (perimeter * perimeter) : 0;
-
-                    float labelX, labelTopY;
-
-                    if (circularity > CircularityThreshold)
-                    {
-                        // Yuvarlak nesne (ör. kapak) — nesneyi saran bir daire çiz.
-                        Cv2.MinEnclosingCircle(hull, out var center, out float radius);
-                        g.DrawEllipse(pen, center.X - radius, center.Y - radius, radius * 2, radius * 2);
-                        labelX = center.X - radius;
-                        labelTopY = center.Y - radius;
-                    }
-                    else
-                    {
-                        // Uzun/oval nesne (ör. hurma) — nesnenin kendi açısına oturan döndürülmüş dikdörtgen çiz.
-                        var rotatedRect = Cv2.MinAreaRect(hull);
-                        var corners = rotatedRect.Points().Select(p => new PointF(p.X, p.Y)).ToArray();
-                        g.DrawPolygon(pen, corners);
-                        labelX = corners.Min(p => p.X);
-                        labelTopY = corners.Min(p => p.Y);
-                    }
-
-                    var textSize = g.MeasureString(label, font);
-                    float labelY = Math.Max(0, labelTopY - textSize.Height);
-                    using var bgBrush = new SolidBrush(color);
-                    g.FillRectangle(bgBrush, labelX, labelY, textSize.Width + 6, textSize.Height);
-                    g.DrawString(label, font, Brushes.White, labelX + 3, labelY);
-                }
+                DetectionOverlay.Draw(g, smoothed, 0, 0);
             }
             catch
             {
